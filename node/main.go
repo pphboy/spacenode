@@ -2,13 +2,17 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
+	"io"
 	"net"
 	"spacenode/libs/models"
 	"spacenode/libs/spacetun"
 	"time"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
@@ -78,37 +82,71 @@ func main() {
 	defer ifce.Close()
 	defer conn.Close()
 
-	logrus.Info("Entering main loop to read from TUN and write to connection")
-	tcpConn, ok := conn.(*net.TCPConn)
-	if ok {
-		tcpConn.SetNoDelay(true) // 禁用 Nagle 算法
-	}
+	// logrus.Info("Entering main loop to read from TUN and write to connection")
+	// tcpConn, ok := conn.(*net.TCPConn)
+	// if ok {
+	// 	tcpConn.SetNoDelay(true) // 禁用 Nagle 算法
+	// }
 
+	// go func() {
+	// 	buf := make([]byte, 65535)
+	// 	for {
+	// 		n, err := tcpConn.Read(buf)
+	// 		if err != nil {
+	// 			logrus.Errorf("conn 读取失败: %v", err)
+	// 			break
+	// 		}
+	// 		if _, err := ifce.Write(buf[:n]); err != nil {
+	// 			logrus.Errorf("%s", buf[:n])
+	// 			logrus.Errorf("ifce 写入失败: %v, %d", err, n)
+	// 			break
+	// 		}
+	// 	}
+	// }()
 	go func() {
-		buf := make([]byte, 1024) // 32KB 缓冲区
 		for {
-			n, err := tcpConn.Read(buf)
-			if err != nil {
-				logrus.Errorf("conn 读取失败: %v", err)
-				break
+			lengthBuf := make([]byte, 2)
+			if _, err := io.ReadFull(conn, lengthBuf); err != nil {
+				if err == io.EOF {
+					logrus.Errorln("MoonServer 关闭连接")
+					return
+				}
+				logrus.Errorf("读取长度头失败: %v", err)
+				continue
 			}
-			if _, err := ifce.Write(buf[:n]); err != nil {
-				logrus.Errorf("%s", buf[:n])
-				logrus.Errorf("ifce 写入失败: %v, %d", err, n)
-				break
+
+			pktLength := binary.BigEndian.Uint16(lengthBuf)
+			// 读取实际数据
+			packetData := make([]byte, pktLength)
+			if _, err := io.ReadFull(conn, packetData); err != nil {
+				logrus.Errorf("读取数据体失败: %v", err)
+				continue
 			}
+			packet := gopacket.NewPacket(packetData, layers.LayerTypeIPv4, gopacket.Default)
+			ipLayer := packet.Layer(layers.LayerTypeIPv4)
+			if ipLayer == nil {
+				logrus.Errorln("skip ")
+				continue
+			}
+
+			ifce.Write(packetData)
 		}
 	}()
 
 	go func() {
-		buf := make([]byte, 1024) // 32KB 缓冲区
+		buf := make([]byte, 65535) // 32KB 缓冲区
 		for {
 			n, err := ifce.Read(buf)
 			if err != nil {
 				logrus.Errorf("ifce 读取失败: %v", err)
 				break
 			}
-			if _, err := tcpConn.Write(buf[:n]); err != nil {
+			lengthBuf := make([]byte, 2)
+			binary.BigEndian.PutUint16(lengthBuf, uint16(n))
+
+			dataToSend := append(lengthBuf, buf[:n]...)
+
+			if _, err := conn.Write(dataToSend); err != nil {
 				logrus.Errorf("conn 写入失败: %v", err)
 				break
 			}

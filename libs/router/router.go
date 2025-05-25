@@ -1,11 +1,12 @@
 package router
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"spacenode/libs/models"
 	"spacenode/libs/syncmap"
-	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -74,25 +75,27 @@ func (r *Router) Serve(ip string) error {
 	}
 	defer conn.Close()
 
-	bf := make([]byte, 65535) // IPv4最大长度（64KB）
 	for {
-		// 读取数据
-		n, err := conn.Read(bf)
-		if err != nil {
-			logrus.Errorln(time.Now().Second())
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				continue // 超时重试
+		lengthBuf := make([]byte, 2)
+		if _, err := io.ReadFull(conn, lengthBuf); err != nil {
+			if err == io.EOF {
+				return nil
 			}
-			logrus.Errorf("read error: %v", err)
+			logrus.Errorf("读取长度头失败: %v", err)
 			return err
 		}
-		origin := make([]byte, n)
-		copy(origin, bf[:n])
 
-		// 解析IP包
-		packet := gopacket.NewPacket(origin, layers.LayerTypeIPv4, gopacket.Default)
+		pktLength := binary.BigEndian.Uint16(lengthBuf)
+		// 读取实际数据
+		packetData := make([]byte, pktLength)
+		if _, err := io.ReadFull(conn, packetData); err != nil {
+			logrus.Errorf("读取数据体失败: %v", err)
+			return err
+		}
+		packet := gopacket.NewPacket(packetData, layers.LayerTypeIPv4, gopacket.Default)
 		ipLayer := packet.Layer(layers.LayerTypeIPv4)
 		if ipLayer == nil {
+			logrus.Errorln("skip ")
 			continue
 		}
 		ipv4, _ := ipLayer.(*layers.IPv4)
@@ -100,7 +103,10 @@ func (r *Router) Serve(ip string) error {
 		// 转发逻辑
 		targetConn, exist := r.routerMap[ipv4.DstIP.String()]
 		if exist {
-			if _, err := targetConn.Write(bf[:n]); err != nil {
+			lengthBuf := make([]byte, 2)
+			binary.BigEndian.PutUint16(lengthBuf, uint16(len(packetData)))
+			dataToSend := append(lengthBuf, packetData...)
+			if _, err := targetConn.Write(dataToSend); err != nil {
 				logrus.Errorf("write error: %v", err)
 			}
 		}
