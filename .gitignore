@@ -1,4 +1,4 @@
-node/node
+node/linux/linux
 server/server
 *.exe
 *.lpk
