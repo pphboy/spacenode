@@ -1,0 +1,26 @@
+lzc-sdk-version: 0.1
+name: LzcSpace
+package: cloud.lazycat.app.lzcspace
+version: 0.0.1
+description:
+license: https://choosealicense.com/licenses/mit/
+homepage:
+author:
+application:
+  ingress:
+    - protocol: tcp
+      port: 59393
+      service: server
+      description: 真实运行的server
+  subdomain: lzcspace
+  routes:
+    - /=
+
+depends_on:
+  - server
+
+services:
+  server:
+    image: registry.lazycat.cloud/vim/library/alpine:1c4eef651f65e2f7
+    command: sleep 99999
+    network_mode: host

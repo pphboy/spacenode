@@ -82,27 +82,6 @@ func main() {
 	defer ifce.Close()
 	defer conn.Close()
 
-	// logrus.Info("Entering main loop to read from TUN and write to connection")
-	// tcpConn, ok := conn.(*net.TCPConn)
-	// if ok {
-	// 	tcpConn.SetNoDelay(true) // 禁用 Nagle 算法
-	// }
-
-	// go func() {
-	// 	buf := make([]byte, 65535)
-	// 	for {
-	// 		n, err := tcpConn.Read(buf)
-	// 		if err != nil {
-	// 			logrus.Errorf("conn 读取失败: %v", err)
-	// 			break
-	// 		}
-	// 		if _, err := ifce.Write(buf[:n]); err != nil {
-	// 			logrus.Errorf("%s", buf[:n])
-	// 			logrus.Errorf("ifce 写入失败: %v, %d", err, n)
-	// 			break
-	// 		}
-	// 	}
-	// }()
 	go func() {
 		for {
 			lengthBuf := make([]byte, 2)
