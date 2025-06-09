@@ -23,7 +23,15 @@ icon: ./lzc-icon.png
 # devshell 没有指定 image 的情况，将会默认使用 registry.lazycat.cloud/lzc-cli/devshell:v0.0.5
 devshell:
   routes:
-    - /=http://server.cloud.lazycat.app.lzcspace.lzcapp:8080
+    - /api=http://server.cloud.lazycat.app.lzcspace.lzcapp:8080
+    - /=http://{$LocalIP}:5730
+  setupscript: |
+    sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories
+    apk update
+    apk add --no-cache go
+    go env -w GO111MODULE=on
+    go env -w  GOPROXY=https://goproxy.cn,direct
+
 
 # devshell 指定 image 的情况
 # devshell:
@@ -56,3 +64,12 @@ devshell:
 #   # setupscript: ./setupscript.sh
 #   setupscript: |
 #     export npm_config_registry=https://registry.npmmirror.com
+
+
+compose_override:
+  services:
+    server: 
+      privileged: true
+      volumes:
+        - /lzcsys:/lzcsys
+        - /proc:/proc

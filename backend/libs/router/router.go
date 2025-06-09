@@ -1,11 +1,11 @@
 package router
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
-	"spacenode/libs/models"
 	"spacenode/libs/syncmap"
 
 	"github.com/google/gopacket"
@@ -13,41 +13,71 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type routerItem struct {
+	IP     string
+	cancel func()
+	ctx    context.Context
+}
+
 type Router struct {
-	syncmap.SyncMap[string, *models.RegisterRequest]
-	routerMap map[string]net.Conn
+	routerMap syncmap.SyncMap[string, net.Conn]
+	items     syncmap.SyncMap[string, *routerItem]
 }
 
 func NewRouter() *Router {
-	return &Router{
-		routerMap: make(map[string]net.Conn),
-	}
+	r := Router{}
+	return &r
 }
 
 func (r *Router) Register(ip string, conn net.Conn) {
 	logrus.Info("register ip: ", ip)
-	r.routerMap[ip] = conn
+	r.routerMap.Store(ip, conn)
+	ctx, cancel := context.WithCancel(context.Background())
+	r.items.Store(ip, &routerItem{
+		IP:     ip,
+		cancel: cancel,
+		ctx:    ctx,
+	})
+
 }
 
 func (r *Router) Remove(ip string) {
-	if conn, ok := r.routerMap[ip]; ok {
-		conn.Close()
-		delete(r.routerMap, ip)
+	if conn, ok := r.routerMap.Load(ip); ok {
+		if err := conn.Close(); err != nil {
+			logrus.Warnf("close conn error: %v", err)
+		}
+		r.routerMap.Delete(ip)
 	}
+	item, ok := r.items.Load(ip)
+	if ok {
+		item.cancel()
+		r.items.Delete(ip)
+	}
+
 }
 
 func (r *Router) Serve(ip string) error {
-	conn, ok := r.routerMap[ip]
+	item, ok := r.items.Load(ip)
+	if !ok {
+		return fmt.Errorf("ip %s not found", ip)
+	}
+	conn, ok := r.routerMap.Load(ip)
 	if !ok {
 		return fmt.Errorf("ip %s not found", ip)
 	}
 	defer conn.Close()
 
 	for {
+		select {
+		case <-item.ctx.Done():
+			logrus.Infof("ip %s router closed", ip)
+			return nil
+		default:
+		}
 		lengthBuf := make([]byte, 2)
 		if _, err := io.ReadFull(conn, lengthBuf); err != nil {
 			if err == io.EOF {
-				delete(r.routerMap, ip)
+				r.routerMap.Delete(ip)
 				logrus.Infof("connection closed for ip %s", ip)
 				return nil
 			}
@@ -60,7 +90,7 @@ func (r *Router) Serve(ip string) error {
 		packetData := make([]byte, pktLength)
 		if _, err := io.ReadFull(conn, packetData); err != nil {
 			if err == io.EOF {
-				delete(r.routerMap, ip)
+				r.routerMap.Delete(ip)
 				logrus.Infof("connection closed for ip %s", ip)
 				return nil
 			}
@@ -77,7 +107,7 @@ func (r *Router) Serve(ip string) error {
 		ipv4, _ := ipLayer.(*layers.IPv4)
 
 		// 转发逻辑
-		targetConn, exist := r.routerMap[ipv4.DstIP.String()]
+		targetConn, exist := r.routerMap.Load(ipv4.DstIP.String())
 		if exist {
 			lengthBuf := make([]byte, 2)
 			binary.BigEndian.PutUint16(lengthBuf, uint16(len(packetData)))
@@ -86,14 +116,16 @@ func (r *Router) Serve(ip string) error {
 				logrus.Errorf("write error: %v", err)
 			}
 		}
+
 	}
 }
 
 func (r *Router) Stop() {
-	for ip, conn := range r.routerMap {
+	r.routerMap.Range(func(ip string, conn net.Conn) bool {
 		if err := conn.Close(); err != nil {
 			logrus.Errorf("failed to close connection for ip %s: %v", ip, err)
 		}
-		delete(r.routerMap, ip)
-	}
+		r.routerMap.Delete(ip)
+		return true
+	})
 }

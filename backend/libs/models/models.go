@@ -5,6 +5,7 @@ import "time"
 type RegisterRequest struct {
 	MoonServer string    `yaml:"moon_server" json:"moon_server"` // moon server的服务地址
 	NodeName   string    `yaml:"node_name" json:"node_name"`     // 客户端名称
+	SpaceNode  SpaceNode `yaml:"space_node" json:"space_node"`   // 注册请求的配置
 	NetConfig  NetConfig `yaml:"net_config" json:"net_config"`   //注册请求的配置
 }
 
@@ -21,8 +22,7 @@ type NetConfig struct {
 // 申请的返回结果
 type RegisterResp struct {
 	// 仅static有效
-	IPv4 string `yaml:"addr" json:"addr"`
-
+	IPv4  string        `yaml:"addr" json:"addr"`
 	Alive time.Duration `yaml:"alive" json:"alive"`
 }
 
