@@ -1,4 +1,4 @@
-node/linux/linux
+backend/node/linux/linux
 server/server
 *.exe
 *.lpk
