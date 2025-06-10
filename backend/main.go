@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	httpPort = flag.Int("http-port", 8080, "HTTP server port")
+	httpPort = flag.Int("http-port", 58083, "HTTP server port")
 	dbpath   = flag.String("dbpath", "/lzcapp/var/space.db", "db path")
 )
 

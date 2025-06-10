@@ -11,6 +11,14 @@ const (
 	AppStatusDisabled AppStatus = "disabled"
 )
 
+type NodeType string
+
+// app,client
+const (
+	NodeTypeApp    NodeType = "app"
+	NodeTypeClient NodeType = "client"
+)
+
 type AppNode struct {
 	SpaceID   string    `json:"space_id" gorm:"primaryKey"`
 	NodeID    string    `json:"node_id" gorm:"primaryKey"`
@@ -36,13 +44,13 @@ type SpaceItemConfig struct {
 }
 
 type SpaceNode struct {
-	SpaceID   string `json:"space_id" yaml:"space_id"`
-	NodeID    string `json:"node_id" yaml:"node_id"`
-	NodeType  string `json:"NodeType" yaml:"NodeType"` // 类型
-	DockerPid int    `json:"docker_pid" yaml:"docker_pid"`
-	AppID     string `json:"app_id" yaml:"app_id"`
-	Service   string `json:"service" yaml:"service"`
-	Domain    string `json:"domain" yaml:"domain"`
+	SpaceID   string   `json:"space_id" yaml:"space_id"`
+	NodeID    string   `json:"node_id" yaml:"node_id"`
+	NodeType  NodeType `json:"node_type" yaml:"node_type"`
+	DockerPid int      `json:"docker_pid" yaml:"docker_pid"`
+	AppID     string   `json:"app_id" yaml:"app_id"`
+	Service   string   `json:"service" yaml:"service"`
+	Domain    string   `json:"domain" yaml:"domain"`
 }
 
 type SpaceAppNodeConfig struct {

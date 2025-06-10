@@ -111,14 +111,21 @@ func (s *Server) registerAppAider(group *gin.RouterGroup) {
 			logrus.Errorf("add app error: %v", err)
 			return
 		}
-
 		ctx.JSON(200, gin.H{"message": "add app success"})
 	})
 
 	group.POST("/remove", func(ctx *gin.Context) {
 		appid := ctx.Query("appid")
+		nodeid := ctx.Query("nodeid")
 		if appid == "" {
 			ctx.JSON(400, gin.H{"error": "appid is required"})
+			return
+		}
+		if err := s.spaceManager.Remove(models.SpaceNode{
+			NodeID: nodeid,
+		}); err != nil {
+			ctx.JSON(500, gin.H{"error": err.Error()})
+			logrus.Errorf("remove app error: %v", err)
 			return
 		}
 		if err := s.appAider.Remove(lzcutils.ToGrpcCtxFromGinCtx(ctx), &models.AppNode{

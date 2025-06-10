@@ -54,6 +54,7 @@ func (s *Space) Remove(r models.SpaceNode) error {
 		return fmt.Errorf("node %s not found", r.NodeID)
 	}
 	s.router.Remove(ni.IP)
+	s.nodes.Delete(r.NodeID)
 	return nil
 }
 
