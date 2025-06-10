@@ -23,8 +23,8 @@ icon: ./lzc-icon.png
 # devshell 没有指定 image 的情况，将会默认使用 registry.lazycat.cloud/lzc-cli/devshell:v0.0.5
 devshell:
   routes:
-    - /api=http://server.cloud.lazycat.app.lzcspace.lzcapp:8080
-    - /=http://{$LocalIP}:5730
+    - /=http://${LocalIP}:5730
+    - /api/=http://server.cloud.lazycat.app.lzcspace.lzcapp:58083/
   setupscript: |
     sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories
     apk update

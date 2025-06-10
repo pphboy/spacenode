@@ -14,13 +14,16 @@ application:
       description: 真实运行的server
   subdomain: lzcspace
   routes:
-    - /=
+    - /=http://${LocalIP}:5730
+    - /api/=http://server.cloud.lazycat.app.lzcspace.lzcapp:58083
+
 
 depends_on:
   - server
 
 services:
   server:
-    image: registry.lazycat.cloud/vim/library/alpine:1c4eef651f65e2f7
+    # image: registry.lazycat.cloud/vim/library/alpine:1c4eef651f65e2f7
+    image: registry.lazycat.cloud/vim/library/alpine:08001109a7d679fe
     command: sleep 99999
     network_mode: host
