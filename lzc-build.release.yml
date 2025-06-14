@@ -9,7 +9,7 @@
 manifest: ./lzc-manifest.release.yml
 
 # contentdir: 指定打包的内容，将会打包到 lpk 中
-# contentdir: ./
+contentdir: ./dist
 
 # pkgout: lpk 包的输出路径
 pkgout: ./
@@ -56,3 +56,11 @@ icon: ./lzc-icon.png
 #   # setupscript: ./setupscript.sh
 #   setupscript: |
 #     export npm_config_registry=https://registry.npmmirror.com
+
+compose_override:
+  services:
+    server: 
+      privileged: true
+      volumes:
+        - /lzcsys:/lzcsys
+        - /proc:/proc

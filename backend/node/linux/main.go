@@ -24,6 +24,9 @@ var (
 	config = flag.String("config", "", "config file path")
 )
 
+// 编译的时候， app / client
+var BuildNodeType string
+
 func main() {
 	flag.Parse()
 	logrus.SetReportCaller(true)
@@ -35,6 +38,7 @@ func main() {
 		if err != nil {
 			log.Fatalln(err)
 		}
+		cfg.NodeConfig.NodeType = models.NodeType(BuildNodeType)
 		rr = &models.RegisterRequest{
 			SpaceNode: cfg.NodeConfig,
 			NodeName:  cfg.NodeConfig.NodeID,
@@ -52,7 +56,8 @@ func main() {
 	} else {
 		rr = &models.RegisterRequest{
 			SpaceNode: models.SpaceNode{
-				NodeID: "unknownode_" + uuid.New().String()[:3],
+				NodeID:   "linuxnode_" + uuid.New().String()[:8],
+				NodeType: models.NodeType(BuildNodeType),
 			},
 			NetConfig: models.NetConfig{
 				Type:     "ipv4",
@@ -62,6 +67,12 @@ func main() {
 			MoonServer: *moon,
 		}
 		log = logrus.WithField("nodeid", rr.SpaceNode.NodeID)
+	}
+	if BuildNodeType == "client" {
+		rr.SpaceNode = models.SpaceNode{
+			NodeID:   "linuxnode_" + uuid.New().String()[:8],
+			NodeType: models.NodeType(BuildNodeType),
+		}
 	}
 
 	log.Info("Creating register request")

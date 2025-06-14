@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"runtime"
 	"spacenode/libs/models"
+	"spacenode/libs/ymlutils"
 	"time"
 
 	"github.com/google/gopacket"
@@ -22,22 +23,54 @@ import (
 )
 
 var (
-	moon = flag.String("ipaddr", "172.23.253.179:9393", "MoonServer IP")
+	moon   = flag.String("ipaddr", "172.23.253.179:9393", "MoonServer IP")
+	config = flag.String("config", "", "config file path")
 )
+var BuildNodeType string = "client"
 
 func main() {
 	flag.Parse()
 	logrus.SetReportCaller(true)
 
 	logrus.Info("Creating register request")
-	rr := &models.RegisterRequest{
-		NodeName: "node" + uuid.New().String()[:3],
-		NetConfig: models.NetConfig{
-			Type:     "ipv4",
-			DHCPType: "auto",
-			Alive:    time.Hour * 30 * 24,
-		},
-		MoonServer: *moon,
+
+	logrus.SetReportCaller(true)
+
+	var log *logrus.Entry
+	var rr *models.RegisterRequest
+	if *config != "" {
+		cfg, err := ymlutils.ParseYAML[*models.SpaceAppNodeConfig](*config)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		cfg.NodeConfig.NodeType = models.NodeType(BuildNodeType)
+		rr = &models.RegisterRequest{
+			NodeName: cfg.NodeConfig.NodeID,
+			NetConfig: models.NetConfig{
+				Type:     "ipv4",
+				DHCPType: "auto",
+				Alive:    -1,
+			},
+			MoonServer: fmt.Sprintf("%s:%d", cfg.SpaceConfig.Host, cfg.SpaceConfig.Port),
+		}
+		log = logrus.WithField("service", cfg.NodeConfig.Service).
+			WithField("appid", rr.SpaceNode.AppID).
+			WithField("pid", cfg.NodeConfig.DockerPid)
+	} else {
+		rr = &models.RegisterRequest{
+			NetConfig: models.NetConfig{
+				Type:     "ipv4",
+				DHCPType: "auto",
+				Alive:    time.Hour * 30 * 24,
+			},
+			MoonServer: *moon,
+		}
+		log = logrus.WithField("nodeid", rr.SpaceNode.NodeID)
+
+	}
+	rr.SpaceNode = models.SpaceNode{
+		NodeID:   "winnode_" + uuid.New().String()[:8],
+		NodeType: models.NodeType(BuildNodeType),
 	}
 
 	logrus.Infof("Dialing MoonServer at %s", rr.MoonServer)
@@ -109,9 +142,8 @@ func main() {
 				logrus.Errorln("skip ")
 				continue
 			}
-			ipv4, _ := ipLayer.(*layers.IPv4)
-
-			logrus.Infoln(ipLayer.LayerType(), ipv4.SrcIP, ipv4.DstIP, "len", pktLength)
+			// ipv4, _ := ipLayer.(*layers.IPv4)
+			// logrus.Infoln(ipLayer.LayerType(), ipv4.SrcIP, ipv4.DstIP, "len", pktLength)
 			if _, err := ifce.Write([][]byte{packetData}, 0); err != nil {
 				logrus.Errorf("ifce 写入失败: %v", err)
 				continue
@@ -126,7 +158,7 @@ func main() {
 			bufs[i] = make([]byte, 1500) // MTU大小
 		}
 		for {
-			n, err := ifce.Read(bufs, sizes, 0)
+			_, err := ifce.Read(bufs, sizes, 0)
 			if err != nil {
 				logrus.Errorf("ifce 读取失败: %v", err)
 				break
@@ -134,7 +166,7 @@ func main() {
 			lengthBuf := make([]byte, 2)
 			binary.BigEndian.PutUint16(lengthBuf, uint16(sizes[0]))
 
-			logrus.Infoln("readpages", n, "sizes", sizes)
+			// logrus.Infoln("readpages", n, "sizes", sizes)
 
 			dataToSend := append(lengthBuf, bufs[0][:sizes[0]]...)
 

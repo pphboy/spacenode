@@ -36,6 +36,9 @@ onMounted(async () => {
   try {
     const response = await axios.get('/api/lzcapp/applist')
     apps.value = response.data.apps
+    if (apps.value && apps.value.length > 0) {
+      apps.value = apps.value.filter(v => v.appid != "cloud.lazycat.app.lzcspace")
+    }
   } catch (error) {
     console.error('Failed to fetch apps:', error)
   }

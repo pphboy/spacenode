@@ -21,7 +21,7 @@ const (
 
 type AppNode struct {
 	SpaceID   string    `json:"space_id" gorm:"primaryKey"`
-	NodeID    string    `json:"node_id" gorm:"primaryKey"`
+	NodeID    string    `json:"node_id" gorm:"-"`
 	AppID     string    `json:"app_id" gorm:"primaryKey"`
 	Status    AppStatus `json:"status"`
 	CreatedAt time.Time `json:"created_at"`

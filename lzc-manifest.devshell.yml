@@ -16,6 +16,7 @@ application:
   routes:
     - /=http://${LocalIP}:5730
     - /api/=http://server.cloud.lazycat.app.lzcspace.lzcapp:58083
+    - /static/=file:///lzcapp/cache/devshell/dist/client
 
 
 depends_on:
@@ -27,3 +28,10 @@ services:
     image: registry.lazycat.cloud/vim/library/alpine:08001109a7d679fe
     command: sleep 99999
     network_mode: host
+    environment:
+      - LZCSPACENODE_BIN_DIR=/lzcapp/cache/devshell/dist/client
+
+ext_config:
+  permissions:
+    - PERM_LZC_DOCKER_ADMIN # 将lzc-docker的所有相关文件绑进/lzcapp/run/lzc-docker
+    - PERM_OTHER_APP_DATA_ADMIN # 获取所有lzcapp应用的数据(cache, var)

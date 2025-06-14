@@ -33,6 +33,13 @@ func RunRtrCMD(cmd string, args ...string) (*exec.Cmd, error) {
 	return cs, nil
 }
 
+type Manifest struct {
+	Services map[string]MService `yaml:"services"`
+}
+
+type MService struct {
+}
+
 type DockerCompose struct {
 	// Version  string                 `yaml:"version"`
 	Services map[string]Service `yaml:"services"`
@@ -41,7 +48,8 @@ type DockerCompose struct {
 }
 
 type Service struct {
-	Image       string              `yaml:"image"`
+	// Privileged  bool                `yaml:"privileged,omitempty"`
+	Image       string              `yaml:"image,omitempty"`
 	Ports       []string            `yaml:"ports,omitempty"`
 	Environment map[string]string   `yaml:"environment,omitempty"`
 	Volumes     []string            `yaml:"volumes,omitempty"`
@@ -49,6 +57,20 @@ type Service struct {
 	Networks    []string            `yaml:"networks,omitempty"`
 	Devices     []map[string]string `yaml:"devices,omitempty"`
 	CapAdd      []string            `yaml:"cap_add,omitempty"`
+}
+
+func ParseManifest(filePath string) (*Manifest, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %v", err)
+	}
+
+	var dc Manifest
+	if err := yaml.Unmarshal(data, &dc); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal yaml: %v", err)
+	}
+
+	return &dc, nil
 }
 
 func ParseDockerCompose(filePath string) (*DockerCompose, error) {
@@ -91,4 +113,9 @@ func CopyFile(src, dst string) error {
 	}
 
 	return nil
+}
+
+func FileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }

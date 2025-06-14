@@ -2,6 +2,7 @@ package spacehttp
 
 import (
 	"fmt"
+	"os"
 	"spacenode/libs/lzcutils"
 	"spacenode/libs/models"
 	"spacenode/modules/appaider"
@@ -10,7 +11,6 @@ import (
 	"spacenode/modules/space"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -26,10 +26,6 @@ func NewServer(port int) (*Server, error) {
 	lzcm, err := lzcapp.NewLzcAppManager()
 	if err != nil {
 		logrus.Errorf("failed to init lzcapp manager: %v", err)
-		return nil, err
-	}
-	aa, err := appaider.NewAppAider(db.DB(), lzcm)
-	if err != nil {
 		return nil, err
 	}
 
@@ -50,7 +46,10 @@ func NewServer(port int) (*Server, error) {
 			logrus.Errorln("space manager start failed: ", err)
 		}
 	}()
-
+	aa, err := appaider.NewAppAider(db.DB(), lzcm)
+	if err != nil {
+		return nil, err
+	}
 	s := &Server{
 		engin:        gin.Default(),
 		port:         port,
@@ -88,6 +87,13 @@ func (s *Server) registerSpaceManager(group *gin.RouterGroup) {
 	group.GET("/list", func(ctx *gin.Context) {
 		ctx.JSON(200, s.spaceManager.Nodelist())
 	})
+	// 后期待改成 拿对应spaceid的config
+	group.GET("/config", func(ctx *gin.Context) {
+		cfg := fmt.Sprintf(`space_config:
+    port: 59393
+    host: %s`, os.Getenv("LAZYCAT_APP_DOMAIN"))
+		ctx.String(200, cfg)
+	})
 }
 
 func (s *Server) registerAppAider(group *gin.RouterGroup) {
@@ -104,7 +110,6 @@ func (s *Server) registerAppAider(group *gin.RouterGroup) {
 
 		if err := s.appAider.Add(lzcutils.ToGrpcCtxFromGinCtx(ctx), &models.AppNode{
 			AppID:   appid,
-			NodeID:  "lzcapp" + uuid.NewString()[6:],
 			SpaceID: "space1",
 		}); err != nil {
 			ctx.JSON(500, gin.H{"error": err.Error()})

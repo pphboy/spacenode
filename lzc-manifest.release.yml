@@ -14,7 +14,9 @@ application:
       description: 真实运行的server
   subdomain: lzcspace
   routes:
-    - /=https://developer.lazycat.cloud/
+    - /=file:///lzcapp/pkg/content/ui
+    - /api/=http://server.cloud.lazycat.app.lzcspace.lzcapp:58083
+    - /static/=file:///lzcapp/pkg/content/client
 
 depends_on:
   - server
@@ -22,5 +24,12 @@ depends_on:
 services:
   server:
     image: registry.lazycat.cloud/vim/library/alpine:1c4eef651f65e2f7
-    command: sleep 99999
+    command: /lzcapp/pkg/content/server
     network_mode: host
+    environment:
+      - LZCSPACENODE_BIN_DIR=/lzcapp/pkg/content/client
+  
+ext_config:
+  permissions:
+    - PERM_LZC_DOCKER_ADMIN # 将lzc-docker的所有相关文件绑进/lzcapp/run/lzc-docker
+    - PERM_OTHER_APP_DATA_ADMIN # 获取所有lzcapp应用的数据(cache, var)

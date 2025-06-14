@@ -8,6 +8,7 @@ import (
 	"spacenode/libs/syncmap"
 	"spacenode/modules/lzcapp"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -39,6 +40,9 @@ func NewAppAider(db *gorm.DB, lzcAppManager lzcapp.LzcAppManager) (AppAider, err
 		lam:       lzcAppManager,
 		hooker:    NewLzcAppHooker(),
 		lzcdocker: holder,
+	}
+	if err := ai.loadRecord(); err != nil {
+		return nil, err
 	}
 	return ai, nil
 }
@@ -85,7 +89,7 @@ func (a *appAider) Add(ctx context.Context, an *models.AppNode) error {
 		a.hooker.GenerateConfig(an.AppID, container.Name, &models.SpaceAppNodeConfig{
 			NodeConfig: models.SpaceNode{
 				SpaceID:   an.SpaceID,
-				NodeID:    an.NodeID,
+				NodeID:    fmt.Sprintf("lzcapp_%s", uuid.NewString()),
 				NodeType:  "app", // 类型
 				DockerPid: container.Pid,
 				AppID:     an.AppID,
@@ -134,6 +138,21 @@ func (a *appAider) Remove(ctx context.Context, an *models.AppNode) error {
 	a.apps.Delete(an.AppID)
 	if err := a.db.Delete(an).Error; err != nil {
 		return err
+	}
+	return nil
+}
+
+func (a *appAider) loadRecord() error {
+	var apps []*models.AppNode
+	if err := a.db.Find(&apps).Error; err != nil {
+		logrus.Errorln("failed to find apps: ", err)
+		return err
+	}
+
+	for _, v := range apps {
+		if err := a.Add(context.Background(), v); err != nil {
+			logrus.Errorf("failed to add app %+v: %v", v, err)
+		}
 	}
 	return nil
 }
